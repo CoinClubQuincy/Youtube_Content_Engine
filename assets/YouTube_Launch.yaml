@@ -1,0 +1,269 @@
+Parameters:
+  EC2:
+    Type: String
+    Default: ami-0e2ff28bfb72a4e45
+    Description: AMI ID for Amazon Linux2 W.Virginia
+
+  InstanceTypeParameter:
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t2.small
+      - t2.medium
+      - t2.large
+    Description: Default is t2.micro
+
+  ENVTag:
+    Type: String
+    Default: Dev
+    AllowedValues:
+      - Dev
+      - Prod
+      - Test
+    Description: Label Enviroment Tag
+
+  VersionTag:
+    Type: String
+    Default: V.1
+    Description: Label Version Tag
+
+  ProjectTag:
+    Type: String
+    Description: Label ProjectTag
+
+  DeploymentGroup:
+    Type: String
+    Default: Dev
+    AllowedValues:
+      - Dev
+      - Prod
+      - Test
+    Description: set Deployment Group
+
+  VPC:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC Identifier
+    MinLength: 1
+
+  Subnet1:
+    Type: AWS::EC2::Subnet::Id
+    Description: The Main AZ needed to host the Application [ Choose 2 different subnets ]
+    MinLength: 1
+
+  Subnet2:
+    Type: AWS::EC2::Subnet::Id
+    Description: The Main AZ needed to host the Application [ Choose 2 different subnets ]
+    MinLength: 1
+
+  OperatingSystem:
+    Type: String
+    Default: Amazonlinux2
+    AllowedValues:
+      - Ubuntu
+      - Amazonlinux2
+      - RedHat
+    Description: Choose OS
+
+Resources:
+  API:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name:
+        Ref: AWS::StackName
+      Tags:
+        - Key: ENV
+          Value:
+            Ref: ENVTag
+        - Key: Version
+          Value:
+            Ref: VersionTag
+        - Key: Project
+          Value:
+            Ref: ProjectTag
+
+  BasicBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AWS::StackName}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: DeploymentGroup
+          Value: DeploymentGroup
+        - Key: ENV
+          Value:
+            Ref: ENVTag
+        - Key: Version
+          Value:
+            Ref: VersionTag
+        - Key: Project
+          Value:
+            Ref: ProjectTag
+
+  WebInstance:
+    Type: AWS::EC2::Instance
+    Metadata:
+        AWS::CloudFormation::Init:
+          config:
+            files:
+              '/etc/profile.d/load_env.sh':
+                content: !Sub |
+                  export Name=${BasicBucket}
+
+    Properties:
+        InstanceType:
+          Ref: InstanceTypeParameter
+        ImageId:
+          Ref: EC2
+        SecurityGroupIds:
+          - Ref: InstanceSecurityGroup
+        SubnetId:
+          Ref: Subnet1
+        KeyName: MyKey
+        UserData:
+          Fn::Base64: !Sub |
+              #!/bin/bash -xe
+              sudo yum update -y
+              sudo yum install docker -y
+              sudo service docker start
+              sudo usermod -a -G docker ec2-user8
+
+
+        Tags:
+          - Key: Name
+            Value: !Ref AWS::StackName
+          - Key: DeploymentGroup
+            Value:
+              Ref: DeploymentGroup
+          - Key: ENV
+            Value:
+              Ref: ENVTag
+          - Key: Version
+            Value:
+              Ref: VersionTag
+          - Key: Project
+            Value:
+              Ref: ProjectTag
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+        GroupDescription: Allow HTTP/HTTPS to ALB
+        VpcId:
+           Ref: VPC
+        SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        Tags:
+          - Key: Name
+            Value: !Ref AWS::StackName
+          - Key: DeploymentGroup
+            Value:
+              Ref: DeploymentGroup
+          - Key: ENV
+            Value:
+              Ref: ENVTag
+          - Key: Version
+            Value:
+              Ref: VersionTag
+          - Key: Project
+            Value:
+              Ref: ProjectTag
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckEnabled: True
+      HealthCheckIntervalSeconds: 100
+      HealthCheckPort: 443
+      HealthCheckProtocol: HTTPS
+      HealthCheckTimeoutSeconds: 90
+      HealthyThresholdCount: 3
+      Name: !Ref AWS::StackName
+      Port: 443
+      Protocol: HTTPS
+      Targets:
+        - Id:
+            Ref: WebInstance
+          Port: 443
+      TargetType: instance
+      VpcId:
+        Ref: VPC
+      Tags:
+        - Key: Name
+          Value: !Ref AWS::StackName
+        - Key: DeploymentGroup
+          Value:
+            Ref: DeploymentGroup
+        - Key: ENV
+          Value:
+            Ref: ENVTag
+        - Key: Version
+          Value:
+            Ref: VersionTag
+        - Key: Project
+          Value:
+            Ref: ProjectTag
+
+  Loadbalencer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: !Ref AWS::StackName
+      Scheme: internet-facing
+      SecurityGroups:
+        - Ref: InstanceSecurityGroup
+      Subnets:
+        - Ref: Subnet1
+        - Ref: Subnet2
+      Type: application
+      Tags:
+        - Key: Name
+          Value: !Ref AWS::StackName
+        - Key: DeploymentGroup
+          Value:
+            Ref: DeploymentGroup
+        - Key: ENV
+          Value:
+            Ref: ENVTag
+        - Key: Version
+          Value:
+            Ref: VersionTag
+        - Key: Project
+          Value:
+            Ref: ProjectTag
+
+  PlacementGroup:
+    Type: AWS::EC2::PlacementGroup
+    Properties:
+      Strategy: cluster
+      Tags:
+        - Key: Name
+          Value: !Ref AWS::StackName
+        - Key: DeploymentGroup
+          Value:
+            Ref: DeploymentGroup
+        - Key: ENV
+          Value:
+            Ref: ENVTag
+        - Key: Version
+          Value:
+            Ref: VersionTag
+        - Key: Project
+          Value:
+            Ref: ProjectTag
