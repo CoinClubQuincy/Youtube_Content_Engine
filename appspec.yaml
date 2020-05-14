@@ -1,0 +1,33 @@
+version: 0.0
+os: linux
+files:
+  - source: /
+    destination: /home/ubuntu
+permissions:
+  - object: /home/ubuntu
+    owner: root
+
+hooks:
+  ApplicationStop:
+    - location: assets/LaunchScripts/stop_server.sh
+      timeout: 300
+      runas: root
+
+  AfterInstall:
+    - location: assets/LaunchScripts/after_install.sh
+      timeout: 300
+      runas: root
+
+  BeforeInstall:
+    - location: assets/LaunchScripts/install_dependencies.sh
+      timeout: 300
+      runas: root
+
+  ApplicationStart:
+    - location: assets/LaunchScripts/start_server.sh
+      timeout: 300
+      runas: root
+
+  ValidateService:
+    - location: assets/LaunchScripts/validate_service.sh
+      timeout: 300
