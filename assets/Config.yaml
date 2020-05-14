@@ -1,0 +1,42 @@
+#Config file for YouTubeEngine
+#Title & VideoDuration [Generate]
+#YT_Cycles [skip]
+
+YoutubeEngine:
+     #set Video Basic Info
+     Title: Generate
+     Description: test
+     Keywords: test
+     VideoDuration: 20
+     #YouTube Video Details
+     Stat: private
+     Overlay_OPACITY: .25
+     Color_OPACITY: .17
+     #How many Videos do you want created?
+     YT_Cycles: skip
+     S3_Cycles: 5
+     #Files need to lauch Generator change for local Enviroment
+     VideoInt: SoFoIntro.mp4
+     Movie_name: VIDEO_FILE.mp4
+     Music: AUDIO_FILE.mp3
+     Color: COLOR_OVERLAY_FILE.png
+     Vid_overlay: VID_OVERLAY_FILE.mov
+     S3Bucket: [Enter Bucket]
+
+
+TEMP_MetaData:
+     META_Video:
+     META_Audio:
+     META_Over_Vid:
+     META_Over_Col:
+
+
+#Notes Vars
+    #Variables for Generator
+    #x = "VIDEO_FILE.mp4"
+    #y = "AUDIO_FILE.mp3"
+    #movie_name = input("enter video file name: ")
+    #music = input("enter audio file name: ")
+    #Color = ""
+    #Vid_overlay =""
+    #desired_duration = 30
